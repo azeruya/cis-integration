@@ -1,5 +1,10 @@
+import logging
+
 from app.integration.handlers.oru_handler import handle_oru
 from app.integration.handlers.adt_handler import handle_adt
+
+logger = logging.getLogger(__name__)
+
 
 def route_message(parsed_data):
     """
@@ -7,7 +12,7 @@ def route_message(parsed_data):
     """
 
     if parsed_data is None:
-        print("Cannot route an invalid message")
+        logger.error("Cannot route an invalid message")
         return None
 
     message_type = parsed_data["metadata"]["message_type"]
@@ -17,5 +22,5 @@ def route_message(parsed_data):
     elif message_type.startswith("ADT"):
         return handle_adt(parsed_data)
     else:
-        print(f"Unsupported message type: {message_type}")
+        logger.warning("Unsupported message type: %s", message_type)
         return {"status": "unsupported", "message_type": message_type}

@@ -36,7 +36,7 @@ def generate_ack(parsed_data, acknowledgement_code="AA"):
         f"{sending_application}|"
         f"{sending_facility}|"
         f"{timestamp}||"
-        f"ACK^R01^ACK|"
+        f"ACK|"
         f"{ack_control_id}|"
         f"{processing_id}|"
         f"{hl7_version}\r"

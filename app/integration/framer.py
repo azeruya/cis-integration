@@ -1,10 +1,19 @@
-
 # MLLP control characters
 START_BLOCK = b"\x0b"
 END_BLOCK = b"\x1c"
 CARRIAGE_RETURN = b"\x0d"
 
 MAX_BUFFER_SIZE = 10 * 1024 * 1024  # 10 MB
+
+
+class FramingError(Exception):
+    """
+    Raised only for an abnormal condition the caller should treat as fatal
+    for the connection (e.g. a flooded buffer). A single malformed
+    terminator is NOT fatal -- see extract_messages below -- so callers
+    can tell the two apart and keep the connection open for the common
+    case of one glitched frame.
+    """
 
 
 def extract_messages(buffer):
@@ -38,7 +47,12 @@ def extract_messages(buffer):
             break
 
         if buffer[end + 1] != CARRIAGE_RETURN[0]:
-            raise ValueError("Invalid MLLP message terminator")
+            # Malformed terminator: a device glitch or a stray byte. Drop
+            # just this fragment (through the bad END_BLOCK) and
+            # resynchronize on the next START_BLOCK, instead of raising
+            # and forcing the whole connection to be torn down.
+            del buffer[:end + 1]
+            continue
 
         message = bytes(buffer[1:end])
         messages.append(message)
@@ -47,6 +61,10 @@ def extract_messages(buffer):
         del buffer[:end + 2]
 
     if len(buffer) > MAX_BUFFER_SIZE:
-        raise ValueError("MLLP buffer exceeds maximum size")
+        buffer.clear()
+        raise FramingError(
+            f"MLLP buffer exceeded {MAX_BUFFER_SIZE} bytes without a "
+            "complete message; buffer cleared"
+        )
 
     return messages

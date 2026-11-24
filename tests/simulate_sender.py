@@ -1,4 +1,6 @@
+import re
 import socket
+import sys
 from pathlib import Path
 
 from app.integration.framer import (
@@ -7,20 +9,31 @@ from app.integration.framer import (
     END_BLOCK,
     CARRIAGE_RETURN
 )
+from app.config import HL7_HOST, HL7_PORT
 
-HOST = "127.0.0.1"
-PORT = 2575
+DEFAULT_SAMPLE = "sample_oru.hl7"
 
 
-def send_hl7_message():
+def control_id(hl7_message):
+    """
+    Pull MSH-10 (message control id) out of the message so the ACK can be
+    verified against whichever sample file was sent, instead of a
+    hardcoded value.
+    """
 
-    file_path = (
-        Path(__file__).parent.parent
-        / "sample_messages"
-        / "sample_oru.hl7"
-    )
+    first_segment = hl7_message.strip().split("\r")[0].split("\n")[0]
+    field_separator = first_segment[3]
+    fields = first_segment.split(field_separator)
+
+    return fields[9] if len(fields) > 9 else None
+
+
+def send_hl7_message(sample_name=DEFAULT_SAMPLE):
+
+    file_path = Path(__file__).parent.parent / "sample_messages" / sample_name
 
     hl7_message = file_path.read_text().strip()
+    expected_control_id = control_id(hl7_message)
 
     framed_message = (
         START_BLOCK
@@ -29,21 +42,15 @@ def send_hl7_message():
         + CARRIAGE_RETURN
     )
 
-    with socket.create_connection((HOST, PORT)) as client:
+    with socket.create_connection((HL7_HOST, HL7_PORT)) as client:
 
         client.settimeout(10)
 
-        print("Connected to CIS listener.")
-
-        # Send HL7 message
-        print("\nSending ORU message...")
+        print(f"Connected to CIS listener. Sending {sample_name}...")
 
         client.sendall(framed_message)
 
-        print("ORU message sent.")
-
-        # Receive ACK
-        print("\nWaiting for ACK...")
+        print("Message sent.\n\nWaiting for ACK...")
 
         buffer = bytearray()
 
@@ -66,9 +73,15 @@ def send_hl7_message():
                 print("\nReceived ACK:")
                 print(repr(ack))
 
-                if "MSA|AA|MSG00001" in ack:
-                    print("ACK successfully verified!")
+                expected = f"MSA|AA|{expected_control_id}"
 
+                if expected in ack:
+                    print(f"ACK successfully verified! ({expected})")
+                elif "MSA|AE|" in ack:
+                    print(
+                        "ACK received with AE (rejected) -- check the "
+                        "listener log for why."
+                    )
                 else:
                     print("ACK received, but verification failed.")
 
@@ -76,4 +89,6 @@ def send_hl7_message():
 
 
 if __name__ == "__main__":
-    send_hl7_message()
+    # Usage: python -m tests.simulate_sender [sample_messages/<file>.hl7]
+    arg = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_SAMPLE
+    send_hl7_message(Path(arg).name)

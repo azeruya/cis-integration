@@ -1,3 +1,8 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 def handle_oru(parsed_data):
     """
     Handle incoming ORU messages containing observations.
@@ -7,16 +12,19 @@ def handle_oru(parsed_data):
     patient = parsed_data["patient"]
     observations = parsed_data["observations"]
 
-    print("\n--- ORU Handler ---")
-
-    print(f"Message ID: {metadata['message_control_id']}")
-    print(f"Patient ID: {patient['patient_id']}")
+    logger.info(
+        "ORU message %s for patient %s: %d observation(s)",
+        metadata["message_control_id"],
+        patient["patient_id"],
+        len(observations)
+    )
 
     for observation in observations:
-        print(
-            f"{observation['observation_id']}: "
-            f"{observation['value']} "
-            f"{observation['units']}"
+        logger.debug(
+            "%s: %s %s",
+            observation["observation_id"],
+            observation["value"],
+            observation["units"]
         )
 
     return {

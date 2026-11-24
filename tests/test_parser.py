@@ -1,5 +1,27 @@
 from pathlib import Path
-from app.integration.parser import parse_hl7_message
+from app.integration.parser import parse_hl7_message, extract_fallback_metadata
+
+
+def test_extract_fallback_metadata_from_malformed_message():
+    # Missing PID/segments entirely -- parse_hl7_message would fail on
+    # this, but MSH alone is enough to address an AE ACK back.
+    raw_message = (
+        "MSH|^~\\&|MINDRAY_EGW|ICU|CIS|HOSPITAL|"
+        "20261124100000||ORU^R01^ORU_R01|MSG00001|T|2.5.1\r"
+    )
+
+    metadata = extract_fallback_metadata(raw_message)
+
+    assert metadata["message_control_id"] == "MSG00001"
+    assert metadata["sending_application"] == "MINDRAY_EGW"
+    assert metadata["sending_facility"] == "ICU"
+    assert metadata["receiving_application"] == "CIS"
+    assert metadata["receiving_facility"] == "HOSPITAL"
+    assert metadata["hl7_version"] == "2.5.1"
+
+
+def test_extract_fallback_metadata_without_msh_returns_none():
+    assert extract_fallback_metadata("not an HL7 message at all") is None
 
 
 def test_parse_oru_message():

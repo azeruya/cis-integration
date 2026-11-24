@@ -1,0 +1,9 @@
+MSH|^~\&|Mindray|ADTServerDemo|||20200605142439+0800||ADT^A01|3|P|2.6|
+EVN|A01|20200605142439+0800|
+PID|||pid||Last Name^First Name^MiddleName||20200604|F||1002-5|Address^^^^Postal Code||Home Phone:|Work Phone:|||||IdentifyID:||||||||||||||||Custom1^Custom1 Name|Custom2^Custom2 Name||Custom3^Custom3 Name|Custom4^Custom4 Name
+PV1||I|Unit^1^1^ADT Server^^^^^00E04C69FCD4^MR50229642PC2|&&0|||^Doctor Info|^Physician Info||||||||||N|VisitNumber|||||||||||||||||||||||Custom1^Custom1 Name|Custom2^Custom2 Name|20200604000000+0800||||||Custom3^Custom3 Name||Custom4^Custom4 Name
+OBR||||69952^MDC_DEV_MON_PT_PHYSIO_MULTI_PARAM^MDC|||00000000000|
+OBX||NM|68060^MDC_ATTR_PT_HEI||169.0||||||F
+OBX||NM|68063^MDC_ATTR_PT_WEI||59.0||||||F
+OBX||ST|2302^MNDRY_ATTR_PT_B||AB||||||F
+OBX||ST|30459^MNDRY_ATTR_PT_E||ON||||||F

@@ -1,3 +1,8 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 def handle_adt(parsed_data):
     """
     Handle incoming ADT messages containing patient events.
@@ -30,13 +35,20 @@ def handle_adt(parsed_data):
         "Other ADT Event"
     )
 
-    print("\n--- ADT Handler ---")
-
-    print(f"Event: {event_name}")
-    print(f"Message ID: {metadata['message_control_id']}")
-    print(f"Patient ID: {patient['patient_id']}")
-    print(f"Patient Name: {patient['patient_name']}")
-    print(f"Patient Location: {patient['patient_location']}")
+    logger.info(
+        "ADT %s (%s) message %s for patient %s",
+        event_type,
+        event_name,
+        metadata["message_control_id"],
+        patient["patient_id"]
+    )
+    # Patient name/location carry PHI, so they stay out of the default
+    # log level and are only emitted at DEBUG.
+    logger.debug(
+        "Patient name: %s, location: %s",
+        patient["patient_name"],
+        patient["patient_location"]
+    )
 
     return {
         "status": "processed",

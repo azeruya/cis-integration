@@ -15,7 +15,7 @@ def test_generate_ack():
     ack = generate_ack(parsed_data)
 
     assert "CIS|HOSPITAL|MINDRAY_EGW|ICU" in ack
-    assert "ACK^R01^ACK" in ack
+    assert "|ACK|" in ack
     assert "MSA|AA|MSG00001" in ack
 @pytest.mark.parametrize(
     "acknowledgement_code",

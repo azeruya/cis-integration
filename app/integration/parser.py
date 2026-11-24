@@ -1,4 +1,39 @@
+import logging
+
 from hl7apy.parser import parse_message
+
+logger = logging.getLogger(__name__)
+
+
+def extract_fallback_metadata(raw_message):
+    """
+    Best-effort extraction of MSH metadata directly from the raw text,
+    for building an ACK when full HL7 parsing fails (e.g. a malformed
+    or incomplete message). Returns None if there isn't even a
+    recognizable MSH segment to read.
+    """
+
+    first_segment = raw_message.strip().split("\r")[0].split("\n")[0]
+
+    if not first_segment.startswith("MSH") or len(first_segment) < 4:
+        return None
+
+    field_separator = first_segment[3]
+    fields = first_segment.split(field_separator)
+
+    def field(index):
+        return fields[index] if len(fields) > index else ""
+
+    return {
+        # MSH-1 is the field separator itself, so fields[2] is MSH-3.
+        "message_control_id": field(9) or "UNKNOWN",
+        "sending_application": field(2),
+        "sending_facility": field(3),
+        "receiving_application": field(4),
+        "receiving_facility": field(5),
+        "processing_id": field(10),
+        "hl7_version": field(11)
+    }
 
 
 def get_field(segment, field_name):
@@ -124,5 +159,5 @@ def parse_hl7_message(raw_message):
         }
 
     except Exception as e:
-        print(f"Error parsing HL7 message: {e}")
+        logger.warning("Error parsing HL7 message: %s", e)
         return None
