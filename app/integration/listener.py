@@ -1,9 +1,11 @@
 import asyncio
-from app.integration.framer import extract_messages
+from app.integration.framer import (
+    extract_messages, START_BLOCK, END_BLOCK, CARRIAGE_RETURN
+)
 from app.integration.parser import parse_hl7_message
-
-HOST = "127.0.0.1"
-PORT = 2575
+from app.integration.router import route_message
+from app.config import HL7_HOST, HL7_PORT
+from app.integration.acknowledgements.ack_generator import generate_ack
 
 async def handle_client(reader, writer):
     """
@@ -48,9 +50,30 @@ async def handle_client(reader, writer):
 
                 if parsed_data is None:
                     print("Failed to parse HL7 message")
-                else:
-                    print("\nParsed HL7 data:")
-                    print(parsed_data)
+                    continue
+
+                # Route the parsed message.
+                result = route_message(parsed_data)
+
+                print("\nProcessing result:")
+                print(result)
+
+                # Generate ACK
+                ack = generate_ack(parsed_data, "AA")
+
+                # Wrap ACK using MLLP framing
+                framed_ack = (
+                    START_BLOCK
+                    + ack.encode("utf-8")
+                    + END_BLOCK
+                    + CARRIAGE_RETURN
+                )
+
+                writer.write(framed_ack)
+                await writer.drain()
+
+                print("\nACK sent:")
+                print(repr(ack))
 
     except Exception as e:
         print(f"Connection error: {e}")
@@ -66,9 +89,9 @@ async def start_server():
     Start the TCP server to listen for incoming HL7 messages.
     """
 
-    server = await asyncio.start_server(handle_client, HOST, PORT)
+    server = await asyncio.start_server(handle_client, HL7_HOST, HL7_PORT)
 
-    print(f"HL7 listener running on {HOST}:{PORT}")
+    print(f"HL7 listener running on {HL7_HOST}:{HL7_PORT}")
 
     async with server:
         await server.serve_forever()

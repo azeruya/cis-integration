@@ -1,12 +1,14 @@
-
 from hl7apy.parser import parse_message
 
 
 def get_field(segment, field_name):
     """
     Retrieve a field from an HL7 segment.
-    Returns an empty string if the field is unavailable.
+
+    Returns an empty string if the segment or field is unavailable.
     """
+    if segment is None:
+        return ""
 
     field = getattr(segment, field_name, None)
 
@@ -16,52 +18,86 @@ def get_field(segment, field_name):
     return field.to_er7()
 
 
+def get_segment(message, segment_name):
+    """
+    Find the first occurrence of a segment in an HL7 message.
+    """
+    return next(
+        (
+            segment
+            for segment in message.children
+            if segment.name == segment_name
+        ),
+        None
+    )
+
+
 def parse_hl7_message(raw_message):
     """
-    Parse a raw HL7 message and extract selected information.
+    Parse an HL7 message and extract common metadata,
+    patient information, and observation data.
     """
 
     try:
-        # Normalize line endings into HL7 segment separators.
+        # Normalize line endings to HL7 segment separators.
         normalized_message = (
             raw_message
             .replace("\r\n", "\r")
             .replace("\n", "\r")
         )
 
-        # Parse the raw HL7 message.
         message = parse_message(
             normalized_message,
             find_groups=False
         )
 
-        # Find the MSH segment.
-        msh = next(
-            (seg for seg in message.children if seg.name == "MSH"),
-            None
-        )
+        # ---------------------------------
+        # 1. Extract message header (MSH)
+        # ---------------------------------
+
+        msh = get_segment(message, "MSH")
 
         if msh is None:
             raise ValueError("MSH segment not found")
 
-        # Extract the message type from MSH-9.
         message_type = get_field(msh, "msh_9")
 
-        # Find the PID segment.
-        pid = next(
-            (seg for seg in message.children if seg.name == "PID"),
-            None
-        )
+        metadata = {
+            "message_type": message_type,
+            "message_control_id": get_field(msh, "msh_10"),
+            "sending_application": get_field(msh, "msh_3"),
+            "sending_facility": get_field(msh, "msh_4"),
+            "receiving_application": get_field(msh, "msh_5"),
+            "receiving_facility": get_field(msh, "msh_6"),
+            "message_timestamp": get_field(msh, "msh_7"),
+            "processing_id": get_field(msh, "msh_11"),
+            "hl7_version": get_field(msh, "msh_12")
+        }
 
-        # Extract the patient identifier from PID-3.
-        patient_id = get_field(pid, "pid_3") if pid else ""
+        # ---------------------------------
+        # 2. Extract patient information
+        # ---------------------------------
 
-        # Collect all OBX segments.
+        pid = get_segment(message, "PID")
+        pv1 = get_segment(message, "PV1")
+
+        patient = {
+            "patient_id": get_field(pid, "pid_3"),
+            "patient_name": get_field(pid, "pid_5"),
+            "visit_number": get_field(pv1, "pv1_19"),
+            "patient_location": get_field(pv1, "pv1_3")
+        }
+
+        # ---------------------------------
+        # 3. Extract observations (OBX)
+        # ---------------------------------
+
         observations = []
 
         for obx in (
-            seg for seg in message.children
-            if seg.name == "OBX"
+            segment
+            for segment in message.children
+            if segment.name == "OBX"
         ):
 
             observation = {
@@ -69,16 +105,21 @@ def parse_hl7_message(raw_message):
                 "value_type": get_field(obx, "obx_2"),
                 "value": get_field(obx, "obx_5"),
                 "units": get_field(obx, "obx_6"),
+                "reference_range": get_field(obx, "obx_7"),
+                "abnormal_flag": get_field(obx, "obx_8"),
                 "status": get_field(obx, "obx_11"),
                 "timestamp": get_field(obx, "obx_14")
             }
 
             observations.append(observation)
 
-        # Return the extracted information after processing all segments.
+        # ---------------------------------
+        # 4. Return parsed message
+        # ---------------------------------
+
         return {
-            "message_type": message_type,
-            "patient_id": patient_id,
+            "metadata": metadata,
+            "patient": patient,
             "observations": observations
         }
 
